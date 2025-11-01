@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JEE SWOT Test</title>
+    <style>
+      body { font-family: Arial; background: #f9fafb; color: #111; margin: 0; padding: 1rem; }
+      .question { background: white; margin: 1rem 0; padding: 1rem; border-radius: 10px; box-shadow: 0 2px 4px #ccc; }
+      button { background: #2563eb; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; margin-top: 1rem; }
+      .timer { position: fixed; top: 1rem; right: 1rem; background: #111; color: white; padding: 0.5rem 1rem; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <h1>JEE SWOT Test</h1>
+    <div class="timer" id="timer"></div>
+    <div id="app">Loading questions...</div>
+
+    <script>
+      const API_BASE = "https://jee-swot-test.onrender.com"; // replace if your Render URL differs
+      let questions = [];
+      let answers = {};
+      let startTime = Date.now();
+      let totalTime = 2.5 * 60 * 60; // 2.5 hours in seconds
+
+      async function loadQuestions() {
+        const res = await fetch(API_BASE + "/questions");
+        questions = await res.json();
+        renderQuestions();
+        startTimer();
+      }
+
+      function renderQuestions() {
+        const app = document.getElementById("app");
+        app.innerHTML = "";
+        questions.forEach((q, i) => {
+          const div = document.createElement("div");
+          div.className = "question";
+          div.innerHTML = `<b>Q${i + 1}. ${q.q}</b><br>` + q.options.map((op, j) =>
+            `<label><input type='radio' name='q${i}' value='${j}' onchange='answers[${i}] = ${j}'> ${op}</label><br>`
+          ).join("");
+          app.appendChild(div);
+        });
+        const btn = document.createElement("button");
+        btn.textContent = "Submit Test";
+        btn.onclick = submitTest;
+        app.appendChild(btn);
+      }
+
+      function startTimer() {
+        const timerEl = document.getElementById("timer");
+        const interval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const remaining = totalTime - elapsed;
+          if (remaining <= 0) {
+            clearInterval(interval);
+            submitTest();
+          } else {
+            const h = Math.floor(remaining / 3600);
+            const m = Math.floor((remaining % 3600) / 60);
+            const s = remaining % 60;
+            timerEl.textContent = `${h}:${m.toString().padStart(2, "0")}:${s
+              .toString()
+              .padStart(2, "0")}`;
+          }
+        }, 1000);
+      }
+
+      async function submitTest() {
+        const res = await fetch(API_BASE + "/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers })
+        });
+        const result = await res.json();
+        localStorage.setItem("lastResult", JSON.stringify(result));
+        showResult(result);
+      }
+
+      function showResult(result) {
+        const app = document.getElementById("app");
+        app.innerHTML = `<h2>Total Score: ${result.total}</h2>`;
+        result.swot.forEach(s => {
+          app.innerHTML += `<div class='question'><h3>${s.subject.toUpperCase()}</h3>
+          <b>Strength:</b> ${s.strength}<br>
+          <b>Opportunity:</b> ${s.opportunity}</div>`;
+        });
+        app.innerHTML += "<button onclick='loadQuestions()'>Retake Test</button>";
+      }
+
+      loadQuestions();
+    </script>
+  </body>
+</html>
